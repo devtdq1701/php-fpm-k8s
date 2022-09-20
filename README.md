@@ -36,5 +36,23 @@ metadata:
   namespace: metallb-system
 ```
 
+**Step 4**: Installing nginx ingress controller
 
+```bash
+k label nodes <master_hostname> ingress-ready=true
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+```
 
+**Step 5**: Test
+
+Using `Curl`:
+
+```
+curl --resolve quangtd.com:80:<master_ip> http://quangtd.com/info.php -v
+```
+
+Add the following entry to your /etc/hosts file:
+
+```
+<master_ip> quangtd.com
+```
