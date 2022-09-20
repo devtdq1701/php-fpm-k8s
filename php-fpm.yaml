@@ -1,0 +1,104 @@
+kind: PersistentVolumeClaim
+apiVersion: v1
+metadata:
+  name: app-pvc
+spec:
+  storageClassName: nfs-client
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  labels:
+    service: app
+spec:
+  selector:
+    service: proxy
+  type: LoadBalancer
+  ports:
+  - port: 8080
+    targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: php-fpm
+  labels:
+    service: php-fpm
+spec:
+  selector:
+    service: php-fpm
+  ports:
+  - port: 9000
+    targetPort: 9000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy
+spec:
+  selector:
+    matchLabels:
+      service: proxy
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        service: proxy
+    spec:
+      containers:
+      - name: proxy
+        image: quangtran1701/nginx:1.14-alpine
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        volumeMounts:
+          - mountPath: /srv/www/app
+            name: app
+      volumes:
+      - name: app
+        persistentVolumeClaim:
+          claimName: app-pvc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: php-fpm
+spec:
+  selector:
+    matchLabels:
+      service: php-fpm
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        service: php-fpm
+    spec:
+      initContainers:
+      - name: gen-file
+        image: busybox:stable
+        command:
+          - sh
+          - -c
+          - echo "<?php phpinfo(); ?>" > /srv/www/app/info.php
+        volumeMounts:
+        - mountPath: /srv/www/app
+          name: app
+      containers:
+      - name: php-fpm
+        image: quangtran1701/php:7.2-fpm
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - mountPath: /srv/www/app
+          name: app
+      volumes:
+      - name: app
+        persistentVolumeClaim:
+          claimName: app-pvc
